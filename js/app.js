@@ -162,7 +162,8 @@ function iniciar() {
     let origen;
     try { origen = iniciarDatos(); } catch (e) {
       console.error(e);
-      document.getElementById('contenido').innerHTML = `<section class="tarjeta"><h1>No se pudieron preparar los datos</h1><p>${esc(e.message)}</p><button class="btn" onclick="localStorage.removeItem('${CLAVE_DATOS}');location.reload()">Regenerar datos de demostración</button></section>`;
+      document.getElementById('contenido').innerHTML = `<section class="tarjeta"><h1>No se pudieron preparar los datos</h1><p>${esc(e.message)}</p><button class="btn" id="btnRegenerar">Regenerar datos de demostración</button></section>`;
+      document.getElementById('btnRegenerar').onclick = () => { adaptador.borrar(); location.reload(); };
       return;
     }
     MODULOS.guia.grupo = null;
