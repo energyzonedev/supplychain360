@@ -3,7 +3,7 @@
 
 MODULOS.kpis = {
   titulo: 'KPIs y analítica', icono: 'kpi', grupo: 'Análisis',
-  f: { dias: 0, desde: '', hasta: '', proveedor: '', material: '', producto: '', area: '' }, sel: 'otif',
+  f: { dias: 0, desde: '', hasta: '', proveedor: '', material: '', producto: '' }, area: '', sel: 'otif',
   rango() {
     if (this.f.desde && this.f.hasta && this.f.hasta >= this.f.desde) return { desde: this.f.desde, hasta: this.f.hasta, dias: diasEntre(this.f.desde, this.f.hasta) + 1 };
     return periodoDesde(this.f.dias || periodoDias);
@@ -11,69 +11,88 @@ MODULOS.kpis = {
   render(main) {
     const r = this.rango();
     const filtros = { proveedor: this.f.proveedor, material: this.f.material, producto: this.f.producto };
-    let kpis = kpisConTendencia(r, filtros);
-    if (this.f.area) kpis = kpis.filter(k => k.grupo === this.f.area);
-    const fuera = kpis.filter(k => ['alerta', 'critico'].includes(k.semaforo));
-    const sel = kpis.find(k => k.clave === this.sel) || kpis[0];
+    const todos = kpisConTendencia(r, filtros);
+    const kpis = this.area ? todos.filter(k => k.grupo === this.area) : todos;
+    const sel = todos.find(k => k.clave === this.sel) || todos[0];
     const grupos = [...new Set(DEF_KPI.map(d => d[1]))];
+    const cuenta = t => todos.filter(k => k.semaforo === t).length;
+    const fuera = todos.filter(k => ['alerta', 'critico'].includes(k.semaforo));
+    const hayFiltros = this.f.proveedor || this.f.material || this.f.producto || this.f.desde;
     const sel_ = (id, etq, ops) => `<label class="filtro">${etq}<select data-kf="${id}"><option value="">Todos</option>${ops.map(([v, t]) => `<option value="${esc(v)}" ${this.f[id] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
+    const estadoTxt = k => ({ bien: 'En meta', alerta: 'Atención', critico: 'Fuera de meta', info: 'Seguimiento', sindatos: 'Sin datos' })[k.semaforo];
+    const tono = k => (k.semaforo === 'sindatos' || k.semaforo === 'info' ? 'neutro' : k.semaforo);
+    const flecha = k => (k.delta == null || k.delta === 0 ? '' : `<span class="delta ${k.mayorMejor == null ? '' : (k.delta > 0) === k.mayorMejor ? 'mejor' : 'peor'}" title="Contra el periodo anterior">${k.delta > 0 ? '▲' : '▼'}</span>`);
+
     main.innerHTML = `
-      ${encabezado('KPIs y analítica', `20 indicadores calculados con los registros de la simulación · ${tituloPeriodo(r)} (${r.dias} días) contra los ${r.dias} días anteriores.`,
-        `<button class="btn btn-sec" id="kExport">${icono('descarga')} Exportar resultados</button>`)}
-      <section class="tarjeta"><div class="acciones-fila" style="align-items:flex-end">
-        <label class="filtro">Periodo<select data-kf="dias">${[[0, `Como la cabecera (${periodoDias} días)`], [7, 'Últimos 7 días'], [15, 'Últimos 15 días'], [30, 'Últimos 30 días']].map(([v, t]) => `<option value="${v}" ${Number(this.f.dias) === v && !this.f.desde ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-        <label class="filtro">Desde<input type="date" data-kf="desde" value="${this.f.desde}" max="${hoy()}"></label>
-        <label class="filtro">Hasta<input type="date" data-kf="hasta" value="${this.f.hasta}" max="${hoy()}"></label>
-        ${sel_('area', 'Área', grupos.map(g => [g, g]))}
-        ${sel_('proveedor', 'Proveedor', S.proveedores.map(p => [p.codigo, p.razon]))}
-        ${sel_('material', 'Material', S.materiales.map(m => [m.codigo, m.descripcion]))}
-        ${sel_('producto', 'Producto', S.productos.map(p => [p.codigo, p.nombre]))}
-        <button class="btn btn-sec btn-chico" id="kLimpiar">Limpiar filtros</button>
-      </div><p class="nota" style="margin-top:8px">El proveedor y el material filtran los KPIs de compras, transporte y almacén; el producto filtra producción y distribución. Los demás se calculan para toda la planta.</p></section>
-      <div class="indicadores" style="margin-top:16px">${kpis.map(k => `
-        <button class="ind ${k.semaforo === 'sindatos' ? '' : k.semaforo}" data-ksel="${k.clave}" style="${k.clave === sel.clave ? 'border-color:var(--azul)' : ''}">
-          <div class="ind-cab"><span>${esc(k.nombre)}</span>${k.semaforo === 'sindatos' ? pill('Sin datos', 'neutro') : k.semaforo === 'info' ? pill(k.grupo, 'info') : pill({ bien: 'En meta', alerta: 'Atención', critico: 'Fuera de meta' }[k.semaforo], k.semaforo)}</div>
-          <div class="ind-valor" style="font-size:1.35rem">${esc(formatoKPI(k))}</div>
-          <div class="ind-pie"><span>Meta: ${esc(formatoMeta(k))}</span>${k.delta != null ? `<span class="delta ${k.delta === 0 || k.mayorMejor == null ? '' : (k.delta > 0) === k.mayorMejor ? 'mejor' : 'peor'}">${k.delta > 0 ? '▲' : k.delta < 0 ? '▼' : '='} ${esc(formatoKPI(k, Math.abs(k.delta)).replace(' vueltas/año', ''))}</span>` : ''}</div>
-          <div class="ind-pie">${esc(k.interpretacion)}</div>
+      ${encabezado('KPIs y analítica', `${tituloPeriodo(r)} · comparado contra los ${r.dias} días anteriores.`,
+        `<label class="filtro filtro-linea">Periodo<select data-kf="dias">${[[0, `${periodoDias} días (cabecera)`], [7, '7 días'], [15, '15 días'], [30, '30 días']].map(([v, t]) => `<option value="${v}" ${Number(this.f.dias) === v && !this.f.desde ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+         <button class="btn btn-sec" id="kExport">${icono('descarga')} Exportar</button>`)}
+      <div class="kpi-resumen">
+        <div class="kr bien"><b>${cuenta('bien')}</b><span>en meta</span></div>
+        <div class="kr alerta"><b>${cuenta('alerta')}</b><span>en atención</span></div>
+        <div class="kr critico"><b>${cuenta('critico')}</b><span>fuera de meta</span></div>
+        <div class="kr"><b>${cuenta('info') + cuenta('sindatos')}</b><span>de seguimiento</span></div>
+      </div>
+      <div class="pestanas">${[['', 'Todos'], ...grupos.map(g => [g, g])].map(([v, t]) => `<button class="${this.area === v ? 'activa' : ''}" data-karea="${esc(v)}">${esc(t)}</button>`).join('')}</div>
+      <details class="mas-filtros" ${hayFiltros ? 'open' : ''}><summary>Más filtros${hayFiltros ? ' (activos)' : ''}</summary>
+        <div class="acciones-fila" style="align-items:flex-end;margin-top:10px">
+          <label class="filtro">Desde<input type="date" data-kf="desde" value="${this.f.desde}" max="${hoy()}"></label>
+          <label class="filtro">Hasta<input type="date" data-kf="hasta" value="${this.f.hasta}" max="${hoy()}"></label>
+          ${sel_('proveedor', 'Proveedor', S.proveedores.map(p => [p.codigo, p.razon]))}
+          ${sel_('material', 'Material', S.materiales.map(m => [m.codigo, m.descripcion]))}
+          ${sel_('producto', 'Producto', S.productos.map(p => [p.codigo, p.nombre]))}
+          <button class="btn btn-sec btn-chico" id="kLimpiar">Limpiar</button>
+        </div>
+        <p class="nota" style="margin-top:6px">Proveedor y material filtran compras, transporte y almacén; producto filtra producción y distribución.</p>
+      </details>
+      <div class="kpi-grid">${kpis.map(k => `
+        <button class="kpi-card ${k.semaforo}${k.clave === sel.clave ? ' sel' : ''}" data-ksel="${k.clave}">
+          <span class="kc-nombre">${esc(k.nombre)}</span>
+          <span class="kc-valor">${esc(formatoKPI(k))} ${flecha(k)}</span>
+          <span class="kc-pie"><span>Meta ${esc(k.meta == null ? '—' : formatoMeta(k))}</span>${pill(estadoTxt(k), tono(k))}</span>
         </button>`).join('')}</div>
       <div class="rejilla r21">
-        <section class="tarjeta"><div class="tarjeta-cab"><h2>Tendencia: ${esc(sel.nombre)}</h2><span class="nota">Ventana móvil de 7 días</span></div><div class="grafica" id="kTend"></div>
-          <div class="calculo" style="margin-top:10px"><b>Definición.</b> ${esc(sel.definicion)}<br><b>Fórmula.</b> ${esc(sel.formula)}<br><b>Valor.</b> ${esc(formatoKPI(sel))} — ${esc(sel.detalle || '')}<br><b>Meta.</b> ${esc(formatoMeta(sel))} · <b>Periodo.</b> ${tituloPeriodo(r)}</div></section>
-        <section class="tarjeta"><h2>Recomendaciones operativas</h2><p class="nota">Basadas en las causas registradas (incidencias, defectos y desempeño de proveedores).</p><ul class="pasos-guia">${recomendaciones(kpis.length === 20 ? kpis : calcularKPIs(r, filtros)).map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>
-      </div>
-      <div class="rejilla r2">
-        <section class="tarjeta"><h2>Valor actual contra meta</h2><p class="nota">Porcentaje de la meta alcanzado (100 % = justo en la meta). Sólo indicadores con meta y con datos.</p><div class="grafica" id="kMeta"></div></section>
-        <section class="tarjeta"><h2>Indicadores que no cumplen la meta</h2>${tabla('kfuera', { sinBarra: true, columnas: [
-          { t: 'Indicador', v: k => `<button class="doc" data-ksel="${k.clave}">${esc(k.nombre)}</button>` }, { t: 'Valor', num: true, v: k => esc(formatoKPI(k)) }, { t: 'Meta', v: k => esc(formatoMeta(k)) }, { t: 'Estado', v: k => pill({ alerta: 'Atención', critico: 'Fuera de meta' }[k.semaforo], k.semaforo) },
-        ], filas: fuera, vacio: 'Todos los indicadores con meta están dentro de rango.' })}</section>
+        <section class="tarjeta" id="kDetalle"><div class="tarjeta-cab"><div><span class="nota">${esc(sel.grupo)}</span><h2>${esc(sel.nombre)}</h2></div>${pill(estadoTxt(sel), tono(sel))}</div>
+          <div class="kd-cifras">
+            <div><span>Valor actual</span><b>${esc(formatoKPI(sel))}</b></div>
+            <div><span>Meta</span><b>${esc(sel.meta == null ? '—' : formatoMeta(sel))}</b></div>
+            <div><span>Periodo anterior</span><b>${sel.anterior == null ? '—' : esc(formatoKPI(sel, sel.anterior))}</b></div>
+          </div>
+          <div class="grafica" id="kTend"></div>
+          <p class="nota" style="margin-top:4px">Tendencia: ventana móvil de 7 días.</p>
+          <details style="margin-top:10px"><summary class="nota" style="cursor:pointer">Definición, fórmula e interpretación</summary>
+            <div class="calculo" style="margin-top:8px"><b>Definición.</b> ${esc(sel.definicion)}<br><b>Fórmula.</b> ${esc(sel.formula)}<br><b>Cálculo.</b> ${esc(sel.detalle || '—')}<br><b>Interpretación.</b> ${esc(sel.interpretacion)}</div></details>
+        </section>
+        <section class="tarjeta"><h2>Qué atender</h2>
+          ${fuera.length ? `<ul class="lista-al" style="margin:10px 0 14px">${fuera.map(k => `<li><button data-ksel="${k.clave}"><span class="ic ${k.semaforo}">${k.semaforo === 'critico' ? '✕' : '!'}</span><span><b>${esc(k.nombre)}</b><small>${esc(formatoKPI(k))} · meta ${esc(formatoMeta(k))}</small></span></button></li>`).join('')}</ul>` : '<p class="vacio">Todos los indicadores con meta están en rango.</p>'}
+          <details><summary class="nota" style="cursor:pointer">Recomendaciones operativas</summary><ul class="pasos-guia" style="margin-top:8px">${recomendaciones(todos).map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>
+        </section>
       </div>`;
+
     main.querySelectorAll('[data-kf]').forEach(el => el.addEventListener('change', () => {
       this.f[el.dataset.kf] = el.value;
       if (el.dataset.kf === 'dias') { this.f.desde = ''; this.f.hasta = ''; }
       refrescar();
     }));
-    main.querySelector('#kLimpiar').onclick = () => { this.f = { dias: 0, desde: '', hasta: '', proveedor: '', material: '', producto: '', area: '' }; refrescar(); };
-    main.querySelectorAll('[data-ksel]').forEach(b => b.onclick = () => { this.sel = b.dataset.ksel; refrescar(); });
+    main.querySelectorAll('[data-karea]').forEach(b => b.onclick = () => { this.area = b.dataset.karea; refrescar(); });
+    main.querySelector('#kLimpiar').onclick = () => { this.f = { dias: 0, desde: '', hasta: '', proveedor: '', material: '', producto: '' }; refrescar(); };
+    main.querySelectorAll('[data-ksel]').forEach(b => b.onclick = () => {
+      this.sel = b.dataset.ksel;
+      refrescar();
+      document.getElementById('kDetalle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     main.querySelector('#kExport').onclick = () => exportarCSV(`sc360-kpis-${r.desde}-${r.hasta}`,
-      [`SupplyChain 360 AI · ${EMPRESA.nombre}`, 'Reporte: KPIs globales', `Periodo evaluado: ${fmt.fecha(r.desde)} a ${fmt.fecha(r.hasta)} (${r.dias} días)`, `Filtros: ${Object.entries(this.f).filter(([k, v]) => v && !['dias', 'desde', 'hasta'].includes(k)).map(([k, v]) => `${k}=${v}`).join('; ') || 'ninguno'}`, `Generado: ${fmt.fechaHora(ahoraMexico())} (hora de México)`, 'Datos ficticios de demostración'],
+      [`SupplyChain 360 AI · ${EMPRESA.nombre}`, 'Reporte: KPIs globales', `Periodo evaluado: ${fmt.fecha(r.desde)} a ${fmt.fecha(r.hasta)} (${r.dias} días)`, `Filtros: ${['proveedor', 'material', 'producto'].filter(k => this.f[k]).map(k => `${k}=${this.f[k]}`).join('; ') || 'ninguno'}`, `Generado: ${fmt.fechaHora(ahoraMexico())} (hora de México)`, 'Datos ficticios de demostración'],
       ['Grupo', 'Indicador', 'Valor', 'Unidad', 'Meta', 'Semáforo', 'Valor periodo anterior', 'Detalle', 'Fórmula'],
-      kpis.map(k => [k.grupo, k.nombre, k.valor == null ? 'Sin datos suficientes' : redondear(k.valor, 4), k.unidad, k.meta == null ? '' : formatoMeta(k), k.semaforo, k.anterior == null ? '' : redondear(k.anterior, 4), k.detalle, k.formula]));
-    // tendencia: ventana móvil de 7 días en cada día del periodo
+      todos.map(k => [k.grupo, k.nombre, k.valor == null ? 'Sin datos suficientes' : redondear(k.valor, 4), k.unidad, k.meta == null ? '' : formatoMeta(k), k.semaforo, k.anterior == null ? '' : redondear(k.anterior, 4), k.detalle, k.formula]));
     const fechas = rangoFechas(r.desde, r.hasta);
     const idx = DEF_KPI.findIndex(d => d[0] === sel.clave);
     const vals = fechas.map(f => calcularKPIs({ desde: sumarDias(f, -6), hasta: f }, filtros)[idx].valor);
     const esPct = sel.unidad === '%';
     dibujos.push(() => graficaLineas(document.getElementById('kTend'), {
-      etiquetas: fechas, formato: (v, eje) => eje ? (esPct ? fmt.num(v) + ' %' : sel.unidad === 'MXN' ? fmt.mxnCorto(v) : fmt.num(v, 1)) : formatoKPI(sel, v),
+      etiquetas: fechas, alto: 210, formato: (v, eje) => (eje ? (esPct ? fmt.num(v) + ' %' : sel.unidad === 'MXN' ? fmt.mxnCorto(v) : fmt.num(v, 1)) : formatoKPI(sel, v)),
       meta: sel.meta != null ? { valor: sel.meta, etiqueta: `Meta ${formatoMeta(sel)}` } : null, yMin: esPct ? 0 : undefined,
       series: [{ nombre: sel.nombre, valores: vals, color: 'var(--s1)' }],
-    }));
-    const conMeta = kpis.filter(k => k.meta != null && k.valor != null && k.mayorMejor != null);
-    const logro = k => Math.max(0, Math.min(150, k.mayorMejor ? 100 * k.valor / (k.meta || 1) : (k.valor ? 100 * k.meta / k.valor : 150)));
-    dibujos.push(() => graficaBarras(document.getElementById('kMeta'), {
-      etiquetas: conMeta.map(k => k.clave), etqFormato: c => DEF_KPI.find(d => d[0] === c)[2].split(' ')[0].slice(0, 9), etqLarga: c => DEF_KPI.find(d => d[0] === c)[2], formato: (v, e) => e ? fmt.num(v) + ' %' : fmt.pct(v, 0),
-      meta: { valor: 100, etiqueta: 'Meta' }, series: [{ nombre: '% de la meta', valores: conMeta.map(logro), color: 'var(--s1)' }],
     }));
   },
 };
