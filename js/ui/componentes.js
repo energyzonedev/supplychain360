@@ -378,11 +378,14 @@ function graficaLineas(el, { etiquetas, series, formato = v => fmt.num(v), yMin,
   if (!vals.length) { el.innerHTML = '<p class="vacio">Sin datos suficientes en el periodo.</p>'; return; }
   const g = marco(el, { etiquetas, alto, formato, meta, etqFormato, yMin: yMin ?? Math.min(...vals, meta ? meta.valor : Infinity), yMax: yMax ?? Math.max(...vals, meta ? meta.valor : -Infinity) });
   let s = g.s;
+  // Los días sin dato (domingos, días sin entregas) no se dibujan como cero: la línea
+  // une los días que sí tienen dato y cada uno lleva su punto.
   series.forEach(se => {
-    let d = '';
-    se.valores.forEach((v, i) => { if (v != null) d += (i === 0 || se.valores[i - 1] == null ? 'M' : 'L') + g.x(i).toFixed(1) + ' ' + g.y(v).toFixed(1); });
+    const pts = se.valores.map((v, i) => (v == null ? null : [g.x(i), g.y(v)])).filter(Boolean);
+    const d = pts.map((p, j) => (j ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
     s += `<path class="g-linea" d="${d}" stroke="${se.color}"/>`;
-    se.valores.forEach((v, i) => { if (v != null && se.valores[i - 1] == null && se.valores[i + 1] == null) s += `<circle class="g-punto" cx="${g.x(i)}" cy="${g.y(v)}" r="4" fill="${se.color}"/>`; });
+    const r = pts.length > 40 ? 2.5 : 3.5;
+    pts.forEach(p => { s += `<circle class="g-punto" cx="${p[0]}" cy="${p[1]}" r="${r}" fill="${se.color}"/>`; });
   });
   el.innerHTML = leyenda(series) + s + '</svg>';
   lectura(el, g, etiquetas, i => series.map(se => `<span><i style="background:${se.color}"></i>${esc(se.nombre)}: <b>${se.valores[i] == null ? 'sin datos' : formato(se.valores[i])}</b></span>`).join(''), etqLarga);
