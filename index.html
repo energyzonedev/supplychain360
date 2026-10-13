@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SupplyChain 360 AI · NovaManufactura México</title>
+<meta name="description" content="Plataforma integral de gestión y simulación logística (datos ficticios de demostración).">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f6feb'/%3E%3Cpath d='M16 6a10 10 0 1 0 10 10M16 11a5 5 0 1 0 5 5' stroke='%23fff' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="lateral" aria-label="Navegación">
+    <a class="logo" href="#dashboard">
+      <span class="logo-marca"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6a6 6 0 1 0 6 6"/><circle cx="12" cy="12" r="2"/><path d="M22 2l-8 8"/></svg></span>
+      <div><b>SupplyChain 360 AI</b><small>Visibilidad total</small></div>
+    </a>
+    <nav class="nav" id="nav"></nav>
+    <button class="btn-contraer" id="btnContraer" aria-label="Contraer o expandir el menú"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Contraer menú</span></button>
+    <div class="lateral-pie">NovaManufactura México S.A. de C.V.<br>Datos ficticios de demostración · uso educativo</div>
+  </aside>
+
+  <div class="principal">
+    <header class="cabecera">
+      <button class="icono-btn menu-movil" id="btnMenuMovil" aria-label="Abrir menú"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="cab-empresa"><b>NovaManufactura México S.A. de C.V.</b><small>Visibilidad total. Decisiones inteligentes. Operaciones eficientes</small></div>
+      <div class="buscador">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="buscarGlobal" type="search" placeholder="Buscar órdenes, materiales, proveedores, productos…" aria-label="Búsqueda global" autocomplete="off">
+        <div class="desplegable" id="buscarRes" hidden></div>
+      </div>
+      <div class="cab-der">
+        <span class="conexion" id="conexion"><i></i><span>En línea · datos locales</span></span>
+        <label class="periodo" title="Periodo de los indicadores"><span class="oculto-acc">Periodo</span>
+          <select id="selPeriodo"><option value="7">Últimos 7 días</option><option value="15" selected>Últimos 15 días</option><option value="30">Últimos 30 días</option></select></label>
+        <div style="position:relative"><button class="icono-btn" id="btnNotif" aria-label="Notificaciones"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="burbuja" id="notifBurbuja" hidden></span></button><div class="desplegable" id="despNotif" hidden></div></div>
+        <div style="position:relative"><button class="icono-btn ayuda" id="btnAyuda" aria-label="Ayuda"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg></button><div class="desplegable" id="despAyuda" hidden></div></div>
+        <button class="btn btn-demo" id="btnDemo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg><span>Modo demostración</span></button>
+        <div style="position:relative"><button class="perfil" id="btnPerfil" aria-label="Perfil y rol de demostración"><span class="avatar" id="perfilAvatar">AT</span><span><b id="perfilNombre">Ana Torres</b><small id="perfilRol">Administrador · demo</small></span></button><div class="desplegable" id="despPerfil" hidden></div></div>
+      </div>
+    </header>
+    <div class="franja-demo"><span><b>Datos ficticios de demostración.</b> Empresa, proveedores, clientes y personas son inventados; no hay conexión con sistemas externos.</span></div>
+    <main id="contenido" tabindex="-1">
+      <div class="cargando"><div class="girando" aria-hidden="true"></div><p>Preparando 30 días de operación de demostración…</p></div>
+    </main>
+  </div>
+</div>
+
+<div id="cajon" hidden></div>
+<dialog class="modal" id="modal"></dialog>
+<div class="avisos" id="avisos" aria-live="polite"></div>
+
+<button class="bot-btn" id="botBtn" aria-controls="botPanel" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8V4M8 4h8M9 14h.01M15 14h.01"/></svg><span>Asistente</span></button>
+<section class="bot-panel" id="botPanel" role="dialog" aria-label="Asistente de SupplyChain 360" hidden>
+  <div class="bot-cab"><div><b>Asistente SC360</b><small>Responde con los datos de la plataforma</small></div><button id="botCerrar" aria-label="Cerrar asistente">✕</button></div>
+  <div class="bot-msgs" id="botMsgs" aria-live="polite"></div>
+  <div class="bot-chips" id="botChips"></div>
+  <form class="bot-form" id="botForm" autocomplete="off"><input id="botEntrada" placeholder="Escribe tu pregunta…" aria-label="Pregunta"><button class="btn" type="submit">Enviar</button></form>
+</section>
+
+<script src="js/nucleo/util.js"></script>
+<script src="js/nucleo/catalogos.js"></script>
+<script src="js/nucleo/almacen-datos.js"></script>
+<script src="js/nucleo/reglas.js"></script>
+<script src="js/nucleo/semilla.js"></script>
+<script src="js/nucleo/kpis.js"></script>
+<script src="js/ui/componentes.js"></script>
+<script src="js/ui/acciones.js"></script>
+<script src="js/ui/documento.js"></script>
+<script src="js/ui/bot.js"></script>
+<script src="js/modulos/comun.js"></script>
+<script src="js/modulos/dashboard.js"></script>
+<script src="js/modulos/compras.js"></script>
+<script src="js/modulos/logistica.js"></script>
+<script src="js/modulos/produccion.js"></script>
+<script src="js/modulos/pedidos.js"></script>
+<script src="js/modulos/analitica.js"></script>
+<script src="js/modulos/simulador.js"></script>
+<script src="js/modulos/configuracion.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
